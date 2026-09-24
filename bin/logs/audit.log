@@ -1,0 +1,17 @@
+{"timestamp":"2026-09-13T19:47:29Z","event":"APP_START","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T19:47:36Z","event":"LOGIN","user":"mr","source":"auth","outcome":"failure"}
+{"timestamp":"2026-09-13T19:47:50Z","event":"CREATE_USER","user":"mr","source":"auth","outcome":"success"}
+{"timestamp":"2026-09-13T19:48:00Z","event":"LOGIN","user":"mr","source":"auth","outcome":"success"}
+{"timestamp":"2026-09-13T20:01:44Z","event":"APP_EXIT","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T20:03:23Z","event":"APP_START","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T20:03:30Z","event":"LOGIN","user":"mr","source":"auth","outcome":"success"}
+{"timestamp":"2026-09-13T20:04:44Z","event":"APP_EXIT","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T20:05:13Z","event":"APP_START","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T20:05:17Z","event":"APP_EXIT","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T20:06:04Z","event":"APP_START","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-13T20:06:10Z","event":"LOGIN","user":"mr","source":"auth","outcome":"success"}
+{"timestamp":"2026-09-16T14:33:39Z","event":"APP_EXIT","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-18T16:45:38Z","event":"APP_START","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-18T16:45:41Z","event":"APP_EXIT","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-18T16:46:02Z","event":"APP_START","user":"-","source":"main","outcome":"success"}
+{"timestamp":"2026-09-19T07:40:06Z","event":"APP_EXIT","user":"-","source":"main","outcome":"success"}
