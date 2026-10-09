@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <sys/stat.h>
 
 #include "users.h"
@@ -122,6 +123,7 @@ int users_create(const user_record_t *record) {
     if (fp == NULL) {
         return -1;
     }
+
     if (chmod(path, S_IRUSR | S_IWUSR) != 0) {
         fclose(fp);
         remove(path);
@@ -134,4 +136,89 @@ int users_create(const user_record_t *record) {
         remove(path);
     }
     return result;
+}
+
+int users_admin_exists(void) {
+    DIR *dir = opendir(USERS_DIR);
+    if (dir == NULL) {
+        return -1;
+    }
+
+    int found = 0;
+    struct dirent *entry;
+    static const char suffix[] = ".rec";
+    size_t suffix_len = sizeof(suffix) - 1;
+
+    while (!found && (entry = readdir(dir)) != NULL) {
+        const char *name = entry->d_name;
+        size_t name_len = strlen(name);
+        if (name_len <= suffix_len || strcmp(name + name_len - suffix_len, suffix) != 0) {
+            continue;
+        }
+
+        char path[USERS_PATH_MAX];
+        int n = snprintf(path, sizeof(path), "%s/%s", USERS_DIR, name);
+        if (n < 0 || (size_t)n >= sizeof(path)) {
+            continue;
+        }
+
+        FILE *fp = fopen(path, "rb");
+        if (fp == NULL) {
+            continue;
+        }
+        user_record_t record;
+        int rc = read_record(fp, &record);
+        fclose(fp);
+
+        if (rc == 0 && record.role == USER_ROLE_ADMIN) {
+            found = 1;
+        }
+    }
+
+    closedir(dir);
+    return found;
+}
+
+int users_list(users_list_callback_t callback, void *user_data) {
+    if (callback == NULL) {
+        return -1;
+    }
+
+    DIR *dir = opendir(USERS_DIR);
+    if (dir == NULL) {
+        return -1;
+    }
+
+    struct dirent *entry;
+    static const char suffix[] = ".rec";
+    size_t suffix_len = sizeof(suffix) - 1;
+
+    while ((entry = readdir(dir)) != NULL) {
+        const char *name = entry->d_name;
+        size_t name_len = strlen(name);
+        if (name_len <= suffix_len || strcmp(name + name_len - suffix_len, suffix) != 0) {
+            continue;
+        }
+
+        char path[USERS_PATH_MAX];
+        int n = snprintf(path, sizeof(path), "%s/%s", USERS_DIR, name);
+        if (n < 0 || (size_t)n >= sizeof(path)) {
+            continue; /* shouldn't happen for a name readdir() gave us, but skip rather than fail the whole scan */
+        }
+
+        FILE *fp = fopen(path, "rb");
+        if (fp == NULL) {
+            continue; /* one unreadable record shouldn't hide the rest */
+        }
+        user_record_t record;
+        int rc = read_record(fp, &record);
+        fclose(fp);
+
+        if (rc == 0) {
+            callback(&record, user_data);
+        }
+    }
+
+    closedir(dir);
+    return 0;
 }

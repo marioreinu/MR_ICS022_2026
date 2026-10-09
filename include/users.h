@@ -16,17 +16,17 @@ typedef struct {
     char username[AUTH_USERNAME_MAX];
     user_role_t role;
     unsigned int iterations;
-    unsigned char auth_salt[USERS_SALT_LEN];  
+    unsigned char auth_salt[USERS_SALT_LEN];
     unsigned char auth_hash[USERS_HASH_LEN];
-    unsigned char enc_salt[USERS_SALT_LEN]; 
+    unsigned char enc_salt[USERS_SALT_LEN];
 } user_record_t;
 
 int users_username_is_safe(const char *username);
-
 int users_exists(const char *username);
-
 int users_load(const char *username, user_record_t *out_record);
-
 int users_create(const user_record_t *record);
+int users_admin_exists(void);
+typedef void (*users_list_callback_t)(const user_record_t *record, void *user_data);
+int users_list(users_list_callback_t callback, void *user_data);
 
 #endif

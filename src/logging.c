@@ -83,7 +83,7 @@ void logging_event(const char *event, const char *user, const char *source, cons
     char safe_outcome[LOG_FIELD_MAX];
 
     json_escape(event, safe_event, sizeof(safe_event));
-    json_escape(user, safe_user, sizeof(safe_user));
+    json_escape(user != NULL ? user : "unauthenticated", safe_user, sizeof(safe_user));
     json_escape(source, safe_source, sizeof(safe_source));
     json_escape(outcome, safe_outcome, sizeof(safe_outcome));
 

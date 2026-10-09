@@ -1,3 +1,4 @@
+
 #include <string.h>
 
 #include <openssl/crypto.h>
@@ -6,7 +7,6 @@
 #include "users.h"
 #include "crypto.h"
 #include "logging.h"
-
 
 #define AUTH_PBKDF2_ITERATIONS 210000u
 
@@ -73,42 +73,55 @@ int auth_admin_login(const char *username, const char *password,
                           out_master_key, out_master_key_len, "ADMIN_LOGIN");
 }
 
-int auth_create_user(const char *username, const char *password) {
+static int create_user_with_role(const char *username, const char *password,
+                                  user_role_t role, const char *log_event) {
     if (username == NULL || password == NULL || password[0] == '\0') {
-        logging_event("CREATE_USER", username, "auth", "failure");
+        logging_event(log_event, username, "auth", "failure");
         return -1;
     }
     if (users_exists(username)) {
-        logging_event("CREATE_USER", username, "auth", "failure");
+        logging_event(log_event, username, "auth", "failure");
         return -1;
     }
 
     user_record_t record;
     memset(&record, 0, sizeof(record));
     strncpy(record.username, username, sizeof(record.username) - 1);
-    record.role = USER_ROLE_STANDARD;
+    record.role = role;
     record.iterations = AUTH_PBKDF2_ITERATIONS;
 
     if (crypto_random_bytes(record.auth_salt, USERS_SALT_LEN) != 0) {
-        logging_event("CREATE_USER", username, "auth", "failure");
+        logging_event(log_event, username, "auth", "failure");
         return -1;
     }
     if (crypto_random_bytes(record.enc_salt, USERS_SALT_LEN) != 0) {
-        logging_event("CREATE_USER", username, "auth", "failure");
+        logging_event(log_event, username, "auth", "failure");
         return -1;
     }
 
     if (crypto_pbkdf2_sha256(password, record.auth_salt, USERS_SALT_LEN,
                               record.iterations, record.auth_hash, USERS_HASH_LEN) != 0) {
-        logging_event("CREATE_USER", username, "auth", "failure");
+        logging_event(log_event, username, "auth", "failure");
         return -1;
     }
 
     if (users_create(&record) != 0) {
-        logging_event("CREATE_USER", username, "auth", "failure");
+        logging_event(log_event, username, "auth", "failure");
         return -1;
     }
 
-    logging_event("CREATE_USER", username, "auth", "success");
+    logging_event(log_event, username, "auth", "success");
     return 0;
+}
+
+int auth_create_user(const char *username, const char *password) {
+    return create_user_with_role(username, password, USER_ROLE_STANDARD, "CREATE_USER");
+}
+
+int auth_create_admin(const char *username, const char *password) {
+    if (users_admin_exists() != 0) {
+        logging_event("CREATE_ADMIN", username, "auth", "failure");
+        return -1;
+    }
+    return create_user_with_role(username, password, USER_ROLE_ADMIN, "CREATE_ADMIN");
 }

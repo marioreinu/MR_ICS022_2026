@@ -8,12 +8,17 @@
 #include "auth.h"
 #include "fileops.h"
 #include "crypto.h"
+#include "logging.h"
+#include "users.h"
 
 #define MENU_CHOICE_BUF_SIZE 8
+
+/* ---- safe input helpers -------------------------------------------- */
 
 static void flush_stdin_line(void) {
     int c;
     while ((c = getchar()) != '\n' && c != EOF) {
+        /* discard */
     }
 }
 
@@ -62,13 +67,15 @@ static int read_menu_choice(int *out) {
     char *endptr = NULL;
     long val = strtol(buf, &endptr, 10);
     if (endptr == buf || *endptr != '\0' || val < 0 || val > 9) {
-        printf("Please enter a number in the range 0-9.\n");
+        printf("Please enter a number between 0-9.\n");
         return 0;
     }
 
     *out = (int)val;
     return 1;
 }
+
+/* ---- prompts --------------------------------------------------------- */
 
 static int prompt_line(const char *label, char *buf, size_t buf_size) {
     printf("%s: ", label);
@@ -82,9 +89,10 @@ static int prompt_password(const char *label, char *buf, size_t buf_size) {
     return read_password_line(buf, buf_size);
 }
 
+/* ---- authenticated session (Authenticated User Menu) ----------------- */
 
 static void print_user_menu(const char *username) {
-    printf("\n-- USER: %s --\n", username);
+    printf("\n-- User: %s --\n", username);
     printf("1. Encrypt File\n");
     printf("2. Decrypt File\n");
     printf("3. Delete File\n");
@@ -94,7 +102,7 @@ static void print_user_menu(const char *username) {
 
 static void handle_encrypt(const char *username, const unsigned char *key) {
     char path[FILEOPS_NAME_MAX];
-    if (!prompt_line("File path to encrypt", path, sizeof(path)) || path[0] == '\0') {
+    if (!prompt_line("Path of the file to encrypt", path, sizeof(path)) || path[0] == '\0') {
         printf("Cancelled.\n");
         return;
     }
@@ -126,7 +134,7 @@ static void handle_decrypt(const char *username, const unsigned char *key) {
 static void handle_delete(const char *username) {
     char stored_name[FILEOPS_NAME_MAX];
     char confirm[8];
-    if (!prompt_line("File name to delete", stored_name, sizeof(stored_name)) || stored_name[0] == '\0') {
+    if (!prompt_line("Name of the file to delete", stored_name, sizeof(stored_name)) || stored_name[0] == '\0') {
         printf("Cancelled.\n");
         return;
     }
@@ -147,8 +155,21 @@ static void handle_delete(const char *username) {
 
 static void handle_list(const char *username) {
     if (fileops_list(username) != 0) {
-        printf("Failed to load the list of files.\n");
+        printf("Failed to load the file list.\n");
     }
+}
+
+static void log_user_menu_choice(const char *username, int choice) {
+    const char *outcome;
+    switch (choice) {
+        case 1: outcome = "encrypt"; break;
+        case 2: outcome = "decrypt"; break;
+        case 3: outcome = "delete"; break;
+        case 4: outcome = "list"; break;
+        case 0: outcome = "logout"; break;
+        default: outcome = "invalid"; break;
+    }
+    logging_event("MENU_CHOICE", username, "menu", outcome);
 }
 
 static void run_authenticated_session(const char *username, const unsigned char *key) {
@@ -159,17 +180,85 @@ static void run_authenticated_session(const char *username, const unsigned char 
         if (!read_menu_choice(&choice)) {
             continue;
         }
+        log_user_menu_choice(username, choice);
         switch (choice) {
             case 1: handle_encrypt(username, key); break;
             case 2: handle_decrypt(username, key); break;
             case 3: handle_delete(username); break;
             case 4: handle_list(username); break;
             case 0: logged_in = 0; break;
-            default: printf("Invalid option.\n"); break;
+            default: printf("Invalid choice.\n"); break;
         }
     }
 }
 
+/* ---- admin session (Admin Menu) --------------------------------------- */
+
+static void print_admin_menu(const char *username) {
+    printf("\n-- Admin: %s --\n", username);
+    printf("1. Encrypt File\n");
+    printf("2. Decrypt File\n");
+    printf("3. Delete File\n");
+    printf("4. List Files\n");
+    printf("5. List Users\n");
+    printf("0. Logout\n");
+}
+
+static void list_users_print_callback(const user_record_t *record, void *user_data) {
+    int *count = (int *)user_data;
+    (*count)++;
+    printf("  %s (%s)\n", record->username,
+           record->role == USER_ROLE_ADMIN ? "admin" : "standard");
+}
+
+static void handle_list_users(const char *admin_username) {
+    int count = 0;
+    int result = users_list(list_users_print_callback, &count);
+    if (result != 0) {
+        printf("Failed to load the user list.\n");
+    } else if (count == 0) {
+        printf("  (no users)\n");
+    }
+
+    logging_event("LIST_USERS", admin_username, "admin", result == 0 ? "success" : "failure");
+}
+
+static void log_admin_menu_choice(const char *username, int choice) {
+    const char *outcome;
+    switch (choice) {
+        case 1: outcome = "encrypt"; break;
+        case 2: outcome = "decrypt"; break;
+        case 3: outcome = "delete"; break;
+        case 4: outcome = "list"; break;
+        case 5: outcome = "list_users"; break;
+        case 0: outcome = "logout"; break;
+        default: outcome = "invalid"; break;
+    }
+    logging_event("MENU_CHOICE", username, "menu", outcome);
+}
+
+static void run_admin_session(const char *username, const unsigned char *key) {
+    int logged_in = 1;
+    while (logged_in) {
+        print_admin_menu(username);
+        int choice;
+        if (!read_menu_choice(&choice)) {
+            continue;
+        }
+        log_admin_menu_choice(username, choice);
+        switch (choice) {
+            case 1: handle_encrypt(username, key); break;
+            case 2: handle_decrypt(username, key); break;
+            case 3: handle_delete(username); break;
+            case 4: handle_list(username); break;
+            case 5: handle_list_users(username); break;
+            case 0: logged_in = 0; break;
+            default: printf("Invalid choice.\n"); break;
+        }
+    }
+}
+
+/* ---- main menu --------------------------------------------------------- */
 
 static void print_main_menu(void) {
     printf("\n-- Main Menu --\n");
@@ -219,7 +308,7 @@ static void handle_create_user(void) {
     if (!prompt_password("Password", password, sizeof(password))) {
         return;
     }
-    if (!prompt_password("Confirm password", password_confirm, sizeof(password_confirm))) {
+    if (!prompt_password("Repeat password", password_confirm, sizeof(password_confirm))) {
         memset(password, 0, sizeof(password));
         return;
     }
@@ -237,9 +326,9 @@ static void handle_create_user(void) {
     memset(password_confirm, 0, sizeof(password_confirm));
 
     if (result == 0) {
-        printf("User created successfully.\n");
+        printf("User created.\n");
     } else {
-        printf("Failed to create user.\n");
+        printf("User creation failed.\n");
     }
 }
 
@@ -262,13 +351,24 @@ static void handle_admin_login(void) {
 
     if (result == 0) {
         printf("Admin login successful.\n");
-
-        run_authenticated_session(canonical_username, master_key);
+        run_admin_session(canonical_username, master_key);
     } else {
         printf("Invalid admin username or password.\n");
     }
 
     crypto_zero(master_key, sizeof(master_key));
+}
+
+static void log_main_menu_choice(int choice) {
+    const char *outcome;
+    switch (choice) {
+        case 1: outcome = "login"; break;
+        case 2: outcome = "create_user"; break;
+        case 3: outcome = "admin_login"; break;
+        case 0: outcome = "exit"; break;
+        default: outcome = "invalid"; break;
+    }
+    logging_event("MENU_CHOICE", NULL, "menu", outcome);
 }
 
 int menu_run(void) {
@@ -279,12 +379,13 @@ int menu_run(void) {
         if (!read_menu_choice(&choice)) {
             continue;
         }
+        log_main_menu_choice(choice);
         switch (choice) {
             case 1: handle_login(); break;
             case 2: handle_create_user(); break;
             case 3: handle_admin_login(); break;
             case 0: running = 0; break;
-            default: printf("Vigane valik.\n"); break;
+            default: printf("Invalid choice.\n"); break;
         }
     }
     return 0;

@@ -30,6 +30,44 @@ static int owner_is_safe(const char *owner) {
     return 1;
 }
 
+static int utf8_sequence_len(const unsigned char *s, size_t remaining) {
+    unsigned char c = s[0];
+    size_t len;
+    unsigned char min_second;
+
+    if ((c & 0xE0) == 0xC0) {          
+        if (c < 0xC2) {                 
+            return 0;
+        }
+        len = 2;
+        min_second = 0x80;
+    } else if ((c & 0xF0) == 0xE0) {   
+        len = 3;
+        min_second = (c == 0xE0) ? 0xA0 : 0x80;
+    } else if ((c & 0xF8) == 0xF0) {   
+        if (c > 0xF4) {                 
+            return 0;
+        }
+        len = 4;
+        min_second = (c == 0xF0) ? 0x90 : 0x80;
+    } else {
+        return 0;
+    }
+
+    if (remaining < len) {
+        return 0;
+    }
+    if (s[1] < min_second || s[1] > 0xBF) {
+        return 0;
+    }
+    for (size_t i = 2; i < len; i++) {
+        if ((s[i] & 0xC0) != 0x80) {
+            return 0;
+        }
+    }
+    return (int)len;
+}
+
 static int stored_name_is_safe(const char *name) {
     if (name == NULL) {
         return 0;
@@ -44,10 +82,22 @@ static int stored_name_is_safe(const char *name) {
     if (strstr(name, "..") != NULL) {
         return 0;
     }
-    for (size_t i = 0; i < len; i++) {
-        unsigned char c = (unsigned char)name[i];
-        if (!(isalnum(c) || c == '_' || c == '-' || c == '.')) {
-            return 0;
+
+    const unsigned char *bytes = (const unsigned char *)name;
+    size_t i = 0;
+    while (i < len) {
+        unsigned char c = bytes[i];
+        if (c < 0x80) {
+            if (!(isalnum(c) || c == '_' || c == '-' || c == '.')) {
+                return 0;
+            }
+            i += 1;
+        } else {
+            int seq_len = utf8_sequence_len(bytes + i, len - i);
+            if (seq_len == 0) {
+                return 0;
+            }
+            i += (size_t)seq_len;
         }
     }
     return 1;
@@ -66,7 +116,7 @@ int metadata_generate_file_id(char *out, size_t out_size) {
         return -1;
     }
 
-    unsigned char raw[METADATA_FILE_ID_LEN / 2]; /* 16 bytes -> 32 hex chars */
+    unsigned char raw[METADATA_FILE_ID_LEN / 2];
     if (crypto_random_bytes(raw, sizeof(raw)) != 0) {
         return -1;
     }
@@ -167,6 +217,7 @@ int metadata_load(const char *owner, const char *stored_name, metadata_record_t 
     if (result != 0) {
         return -1;
     }
+
     if (strcmp(out_record->owner, owner) != 0 || strcmp(out_record->stored_name, stored_name) != 0) {
         return -1;
     }
