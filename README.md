@@ -26,7 +26,7 @@ Authenticated User Menu (after logging in):
 4. List Files
 0. Logout
 
-# ISSUE TO DECIDE!!! 
+# Admin module
 One admin approach. Does not support business logic but can we use it in school project?
 Creating an admin account is done via a separate command-line flag, not through the menu:
 ./bin/secfile --create-admin
@@ -45,15 +45,39 @@ make clean
 make
 
 # Repository layout
-src/       — all .c files
-include/   — all .h files
-storage/   — encrypted .sfm files (created automatically at runtime)
-users/     — password verifiers (created automatically)
-metadata/  — file-ownership records (created automatically)
-logs/      — audit.log (created automatically)
-storage/, users/, metadata/, logs/ are created automatically on first run with 0700 permissions (owner-only access).
+secure-file-tool/
+├── Makefile
+├── README.md
+├── docs/
+│   └── DESIGN.md        architecture and threat model
+├── include/
+│   ├── auth.h
+│   ├── crypto.h
+│   ├── fileops.h
+│   ├── logging.h
+│   ├── menu.h
+│   ├── metadata.h
+│   └── users.h
+├── src/
+│   ├── main.c           startup, first-run admin, --create-admin
+│   ├── menu.c           menus and prompts (English)
+│   ├── auth.c           login and user/admin creation
+│   ├── users.c          user records on disk
+│   ├── crypto.c         AES-256-GCM and PBKDF2
+│   ├── fileops.c        encrypt, decrypt, delete, list
+│   ├── metadata.c       file ownership records
+│   └── logging.c        JSON audit log
+│
+│   The application’s data directories are created automatically on first run with 0700 permissions (owner-only access):
+├── bin/                 secfile binary
+├── obj/                 object files
+├── storage/             encrypted .sfm files
+├── users/               password verifiers
+├── metadata/            file-ownership records
+└── logs/                audit.log
+
 
 # Project status
- In process - Checkpoint 1 — threat model, architecture, repo init
+ Closed - Checkpoint 1 — threat model, architecture, repo init
  In process - Checkpoint 2 — core functionality: interactive CLI menu, PBKDF2 authentication, AES-256-GCM encryption/decryption, per-user metadata, admin bootstrap. Tested end-to-end (create user → login → encrypt → decrypt → content matches original, tampered-file detection, wrong-password rejection, delete).
  Waiting - Checkpoint 3 — full input validation (validation.c), automated tests (tests/test_*.c), final report

@@ -1,0 +1,2 @@
+{"timestamp":"2026-10-09T14:47:35Z","event":"APP_START","user":"unauthenticated","source":"main","outcome":"success"}
+{"timestamp":"2026-10-09T14:47:42Z","event":"CREATE_ADMIN","user":"adm","source":"auth","outcome":"success"}
