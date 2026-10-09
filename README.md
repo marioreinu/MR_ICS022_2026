@@ -53,7 +53,9 @@ secure-file-tool/
 ├── Makefile
 ├── README.md
 ├── docs/
-│   └── DESIGN.md        architecture and threat model
+│   ├── checkpoint1-design.md
+│   ├── checkpoint2-core.md
+│   └── known_issues.md
 ├── include/
 │   ├── auth.h
 │   ├── crypto.h
